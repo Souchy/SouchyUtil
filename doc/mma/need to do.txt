@@ -1,0 +1,114 @@
+
+
+
+Skeleton:
+	list of bones
+		bone:
+			transform matrix (pos, rot, scl) after they got animated
+			name
+			parent
+			reference pose = rest pose?
+			group
+			require
+
+Skin:
+	list of vertices:
+		bone id + bone weight
+
+
+
+What i need in the shader:
+	Add skeleton bone data
+	Add animation data
+	Calculate the interpolation between animation keyframes
+	Calculate the bone transforms
+	Output bone_transforms for the skeleton.glsl to use
+
+
+
+Original:
+	A. 
+		1. AnimationPlayer sets bone local transform
+		2. update global skeleton transforms with parents (child mult parent)
+		3. RS.skeleton_bone_set_transform()
+	B. skeleton.glsl
+		1. calculate vertex pos based on 4 bones
+	C. cluster.glsl
+		1. render meshinstance vertices
+
+
+Steps to do:
+	A. skela.glsl: dispatch(instance_count, 1, 1)
+		1. Sample bone track at TIME
+		2. Set bone local transform
+	B. local to global parenting
+		1. RS.skeleton_bone_set_transform()
+	C. skeleton.glsl: dispatch(vertex_count, 1, 1)
+		1. calculate vertex pos based on 4 bones
+	D. cluster.glsl 
+		- render meshinstance vertices
+		2. translate vertex world pos to screen pixel
+			vertex -> gl_Position
+
+
+QUESTIONS:
+	- How to go from Compute to Vertex shader?
+
+A. animate bones local transforms
+B. set vertex positions from bone global transforms
+C. render vertex to gl_position
+
+
+AB. calculate bones global transforms
+	bones_locals[]
+	bones_globals[]
+
+
+B. vertex shader:
+	bones4[]
+	for b in bones4
+		vertex = src_v * b*w
+
+	calcGlobal(bone)
+		vec3 localpos = bone.transform[2,4]
+		var parent = bones[bone.parentId];
+		vec3 globalPos = 
+
+
+
+
+
+Instances
+	interpolate pos, rot, scl
+	Bones local
+	Bones global
+
+
+
+Per Instance
+	Per Vertex
+		buffer: src_vertex
+		buffer: dst_vertex
+		buffer: bones_local
+		buffer: bones_global
+
+		main()
+			bones0123 = vertex.attributes.bones
+			out_vertex = src_vertex
+			for bone in bones0123
+				calculateBoneLocal(bone)
+
+				out_vertex *= bones_global.data[bone]
+			
+			dst_vertex = out_vertex
+			
+
+		calculateBoneLocal(bone)
+
+			local = interpolateAnimation(bone, time)
+			bones_local.data[bone] = local
+
+		calculateBoneGlobal(bone)
+
+
+

@@ -1,0 +1,76 @@
+
+MULTIMESH
+
+
+
+multimesh_get_3d_uniform_set(RID p_multimesh, RID p_shader, uint32_t p_set)
+
+	uniform.append_id(multimesh.buffer)
+	multimesh.uniform_set_3d = uniform_set_create([uniform], p_shader, p_set);
+
+
+
+multimesh_set_buffer(RID p_multimesh, const Vector<float> &p_buffer)
+
+
+
+
+
+Multimesh buffer:
+	2D:
+	- Position: 8 floats (8 floats for Transform2D)
+	- Position + Vertex color: 12 floats (8 floats for Transform2D, 4 floats for Color)
+	- Position + Custom data: 12 floats (8 floats for Transform2D, 4 floats of custom data)
+	- Position + Vertex color + Custom data: 16 floats (8 floats for Transform2D, 4 floats for Color, 4 floats of custom data)
+	3D:
+	- Position: 12 floats (12 floats for Transform3D)
+	- Position + Vertex color: 16 floats (12 floats for Transform3D, 4 floats for Color)
+	- Position + Custom data: 16 floats (12 floats for Transform3D, 4 floats of custom data)
+	- Position + Vertex color + Custom data: 20 floats (12 floats for Transform3D, 4 floats for Color, 4 floats of custom data)
+
+
+
+
+1. local bone transform = animation.interpolate per frame
+2. global position = local + parent.local + parent.local ...
+3. vertex = globals * weights 
+
+VAT = each vertex position * number of frames
+MY_AT = each bone global position * frames buffer = 720 000 bytes = 60 bones * 10 floats (pos,scl,rot) * 4 bytes * 5 animations * 60 frames
+	bones0123 = get_data(animationid, animationtime)
+	vertex *= bones0123
+
+Instead of sending the local bones to the buffer
+Just send the global bones then it's fucking easy to sample
+I dont even need a compute shader
+
+
+Skeleton.glsl -> just do this in multimesh vertex shader
+	if (params.has_skeleton) {
+		uint skin_offset = params.skin_stride * index;
+
+		// GET SKIN DATA
+		uvec2 bones = uvec2(src_bone_weights.data[skin_offset + 0], src_bone_weights.data[skin_offset + 1]);
+		uvec2 bones_01 = uvec2(bones.x & 0xFFFF, bones.x >> 16) * 2; //pre-add xform offset
+		uvec2 bones_23 = uvec2(bones.y & 0xFFFF, bones.y >> 16) * 2;
+
+		skin_offset += params.skin_weight_offset;
+
+		uvec2 weights = uvec2(src_bone_weights.data[skin_offset + 0], src_bone_weights.data[skin_offset + 1]);
+
+		vec2 weights_01 = unpackUnorm2x16(weights.x);
+		vec2 weights_23 = unpackUnorm2x16(weights.y);
+
+		// GET ANIMATION DATA
+		mat4 m = mat4(bone_transforms.data[bones_01.x], bone_transforms.data[bones_01.x + 1], vec4(0.0, 0.0, 1.0, 0.0), vec4(0.0, 0.0, 0.0, 1.0)) * weights_01.x;
+		m += mat4(bone_transforms.data[bones_01.y], bone_transforms.data[bones_01.y + 1], vec4(0.0, 0.0, 1.0, 0.0), vec4(0.0, 0.0, 0.0, 1.0)) * weights_01.y;
+		m += mat4(bone_transforms.data[bones_23.x], bone_transforms.data[bones_23.x + 1], vec4(0.0, 0.0, 1.0, 0.0), vec4(0.0, 0.0, 0.0, 1.0)) * weights_23.x;
+		m += mat4(bone_transforms.data[bones_23.y], bone_transforms.data[bones_23.y + 1], vec4(0.0, 0.0, 1.0, 0.0), vec4(0.0, 0.0, 0.0, 1.0)) * weights_23.y;
+
+		mat4 skeleton_matrix = mat4(vec4(params.skeleton_transform_x, 0.0, 0.0), vec4(params.skeleton_transform_y, 0.0, 0.0), vec4(0.0, 0.0, 1.0, 0.0), vec4(params.skeleton_transform_offset, 0.0, 1.0));
+		mat4 inverse_matrix = mat4(vec4(params.inverse_transform_x, 0.0, 0.0), vec4(params.inverse_transform_y, 0.0, 0.0), vec4(0.0, 0.0, 1.0, 0.0), vec4(params.inverse_transform_offset, 0.0, 1.0));
+
+		m = skeleton_matrix * transpose(m) * inverse_matrix;
+
+		vertex = (m * vec4(vertex, 0.0, 1.0)).xy;
+	}

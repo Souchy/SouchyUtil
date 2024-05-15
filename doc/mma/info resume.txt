@@ -1,0 +1,193 @@
+Shaders are compiled into a class, then used a direct code
+	- skeleton.glsl
+		○ Set 1, binding 0 § SrcVertexData { uint data[] } src_vertices			-> gltf vertex_data
+		○ Set 1, binding 1 § BoneWeightData { uint data[] } = src_bone_weights	-> gltf skin_data
+		○ Set 2, binding 0 § SkeletonData { vec4 data[] } = bone_transforms		-> current transforms of bones set by animationController
+	- scene_forward_clustered.glsl
+		○ Location 10
+			§ uvec4 bone_attrib (IF BONES_USED || PARTICLE_TRAILS)
+		○ Location 11 
+			§ vec4 weight_attrib (IF WEIGHTS_USED || PARTICLE_TRAILS)
+		○ Main()
+			§ mat4 model_matrix = instances.data[instance_index].transform;
+	- scene_forward_clustered_inc.glsl
+		○ cluster_data_inc.glsl, decal_data_inc.glsl, scene_data_inc.glsl, samplers_inc.glsl, light_data_inc.glsl
+		○ Set 2, binding 0 
+			§ Transforms { vec4 data[] } transforms (//skeleton & instancing)
+		○ Set 1, binding 2
+			§ InstanceDataBuffer { InstanceData data[] } instances
+		○ InstanceData 
+			§ mat4 transform, prev_transform
+			§ uint flags
+			§ vec4 uv_scale
+			§ ... Wheres the color and custom data?
+			
+
+RenderSceneCull
+	struct Instance
+		RID base
+		RID skeleton
+		RID material_override, material_overlay
+		Transform3D transform
+			
+MeshStorage
+	RID_Owner<Skeleton, true> skeleton_owner
+	Skeleton *skeleton_dirty_list
+	struct SkeletonShader
+		PushConstant
+		SkeletonShaderRD shader
+		RID default_skeleton_uniform_set
+		RID pipeline, version, version_shader
+	struct Skeleton
+		Vector<float> data
+		RID buffer
+		bool dirty
+		uint64_t version
+		RID uniform_set_3d
+		RID uniform_set_mi
+	struct MultiMesh
+		RID mesh
+		RID buffer;                          // Position + Vertex color + Custom data: 20 floats (12 floats for Transform3D, 4 floats for Color, 4 floats of custom data)
+												// for each instance I need [animationId, animationTime, x, x] so custom data would be enough
+												// nvm, thats not even true, those need to go in the skeleton.glsl shader
+												// the skeleton.glsl needs to be instanced
+		RID uniform_set_3d
+		RID uniform_set_2d
+	struct MeshInstance
+		struct Surface
+			RID vertexbuffer[2], uniform_set[2]
+		Mesh *mesh
+		RID skeleton
+		Vector<Surface> surfaces
+	struct Mesh
+		struct Surface
+			RID vertex_buffer, attribute_buffer, skin_buffer
+			RID material
+			Vector4 uv_scale
+			RID uniform_set
+			
+		List<MeshInstance*> instances;
+		
+	
+	::MeshStorage()
+		Init default buffers (vertex, normal, tangent, bones, weights..)
+		Skeleton shader init
+			Version, pipeline, uniform_set
+	
+	::mesh_instance_set_skeleton(RID mesh_instance)
+	::mesh_instance_set_skeleton(RID mesh_instance, RID skeleton)
+		MeshInstance.skeleton stuff
+	
+	::_update_dirty_skeletons()
+		RD::get_singleton()->buffer_update(skeleton->buffer, 0, skeleton->data.size() * sizeof(float), skeleton->data.ptr());
+		
+	::skeleton_get_3d_uniform_set(RID p_skeleton, RID p_shader, uint32_t p_set)
+		u.append_id(skeleton->buffer);
+		skeleton.uniform_set_3d = RD::get_singleton()->uniform_set_create(uniforms, p_shader, p_set);
+	
+	::multimesh_get_3d_uniform_set(RID p_multimesh, RID p_shader, uint32_t p_set)
+		u.append_id(multimesh->buffer);
+		multimesh->uniform_set_3d = RD::get_singleton()->uniform_set_create(uniforms, p_shader, p_set);
+		
+	::multimesh_allocate_data(RID p_multimesh, int p_instances, RS::MultimeshTransformFormat p_transform_format, bool p_use_colors, bool p_use_custom_data)
+		buffer_size = multimesh->instances * multimesh->stride_cache * sizeof(float);
+		multimesh->buffer = RD::singleton()->storage_buffer_create(buffer_size)
+		
+	::multimesh_set_buffer(RID multimesh, Vector<float> buffer)
+		RD::get_singleton()->buffer_update(multimesh->buffer, multimesh->motion_vectors_current_offset * multimesh->stride_cache * sizeof(float), p_buffer.size() * sizeof(float), r);
+		
+	ArrayMesh::surface_update_vertex_region ->
+	::mesh_surface_update_vertex_region(RID p_mesh, int p_surface, int p_offset, const Vector<uint8_t> &p_data)
+		RD::get_singleton()->buffer_update(mesh->surfaces[p_surface]->vertex_buffer, p_offset, data_size, r);
+		
+SceneShaderForwardClustered
+	RID default_shader_rd
+	
+RenderForwardClustered
+	SceneShaderForwardClustered scene_shader
+	struct ShaderData
+	struct MaterialData
+	
+	::_render_scene/render_material/render_uv/render_... ->
+	:: _fill_render_list -> 
+	::_update_dirty_geometry_instances() ->
+	::_geometry_instance_update(RenderGeometryInstance *p_geometry_instance)
+		GeometryInstanceForwardClustered *ginstance;
+		if (ginstance->data->base_type == RS::INSTANCE_MULTIMESH)
+			ginstance->transforms_uniform_set = mesh_storage->multimesh_get_3d_uniform_set(ginstance->data->base, scene_shader.default_shader_rd, TRANSFORMS_UNIFORM_SET);
+		if (ginstance->data->base_type == RS::INSTANCE_MESH)
+			if (mesh_storage->skeleton_is_valid(ginstance->data->skeleton))
+				ginstance->transforms_uniform_set = mesh_storage->skeleton_get_3d_uniform_set(ginstance->data->skeleton, scene_shader.default_shader_rd, TRANSFORMS_UNIFORM_SET);
+		
+		
+
+Skin : Resource
+	Vector<Bind> binds
+	struct Bind
+		int bone
+		string name
+		Transform3D pose
+SkinReference : RefCounted
+	RID skeleton
+	Skeleton3D node
+	Vector<uint32_t> skin_bone_indices
+	uint32_t *skin_bone_indices_ptrs
+	
+Skeleton3D : Node3D
+	struct Bone
+		Vector3 pose_position, rotation, scale...
+		String name...
+		
+	::set_bone_pose_position()
+		dirty = true
+		notify(NOTIFICATION_UPDATE_SKELETON)
+		
+	::_notification (NOTIFICATION_UPDATE_SKELETON)
+		force_update_all_bone_transforms(bone_id)
+			// Loops all children to update their position relative to the updated parent
+		Update skins
+			RenderingServer::singleton->skeleton_bone_set_transform(skeleton, i, bonesptr[bone_index].pose_global * skin->get_bind_pose(i));
+			
+	::MeshStorage::skeleton_bone_set_transform(RID skeleton, int bone, Transform3D transform)
+		skeleton.data.ptr() + bone * 12
+		data[0..11] = transform
+		_skeleton_make_dirty(skeleton)
+			MeshStorage::_update_dirty_skeletons
+				buffer_update(skeleton->buffer, 0, size, skeleton->data....)
+				notify(DEPENDENCY_CHANGED_SKELETON_BONES)
+					RendererSceneCull::_instance_queue_update(instance, aabb: true, dependencies: false)
+						_instance_update_list.add(self)
+							RendererSceneCull::_update_dirty_instance(Instance *p_instance)
+								// update dependencies
+									RenderSceneCull::_instance_update_mesh_instance(instance)
+										// Souchy !!
+								RendererSceneCull::_update_instance(Instance *p_instance)
+									?? Based on RS::INSTANCE_GEOMETRY_MASK
+									If(skeleton valid)
+										RSG::mesh_storage->skeleton_update_dependency(p_instance->skeleton, &p_instance->dependency_tracker);
+											P_instance->update_dependency(&skeleton->dependency)
+												????
+
+
+
+
+
+Now that we've updated the skeleton, 
+	- How does the skeleton affect the vertices of the mesh?
+	- How is skeleton.buffer used in shaders?
+	- How is multimesh.buffer used in shaders?
+	- SKELETON.GLSL DOES AFFECT THE MESH INSTANCE VERTICES AS WELL
+
+
+
+
+skin_stride = (skin_buffer_size / vertex_count) / 4
+	skin_buffer_size = [boneid... boneweight.....] for each vertex
+
+druid:
+	vertex count = 9235
+	indices count = 9096
+	skin data size = 147760 bytes
+	skin data per vertex = 147760 / 9235 = 16 bytes, knew it lol
+	skin_stride = skin data per vertex per bone? = 16 / 4 = 4 bytes
+

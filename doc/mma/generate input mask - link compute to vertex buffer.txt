@@ -1,0 +1,72 @@
+
+
+
+
+mesh_add_surface(rid mesh, SurfaceData data)
+	s = new Mesh::Surface
+	s->vertex_buffer = vertex_buffer_create(size, src_data, storage);
+	if(storage)
+		uniforms
+				vertex_buffer + skin_buffer + blend_shape_buffer
+
+
+_mesh_instance_add_surface(MeshInstance, Mesh, int surface)
+	_mesh_instance_add_surface_buffer(..)
+
+_mesh_instance_add_surface_buffer(MeshInstance, Mesh, MI::Surface, int surface, int buffer_index)
+	MeshInstance::Surface.vertexbuffer = new(size, [], true)
+	new unforms 
+		vertex_buffer + blend_weights_buffer
+	s.uniform_set[p_buffer_index] = RD::get_singleton().uniform_set_create(uniforms, skeleton_shader.version_shader[0], SkeletonShader::UNIFORM_SET_INSTANCE)
+
+update_mesh_instances()
+	// Create the new vertex buffer on demand where the result for the current frame will be stored.
+	if(motion_vectors) _mesh_instance_add_surface_buffer(..)
+
+
+
+_mesh_surface_generate_version_for_input_mask(Mesh::Surface s, MeshInstance::Surface mis)
+	if(mask & ARRAY_VERTEX)
+		if(mis)
+			buffers.add(mis.vertex_buffer[currentbuffer])
+		else
+			buffers.add(s.vertex_buffer)
+	v.current_buffer = currentbuffer
+	v.vertex_format = RD::get_singleton().vertex_format_create(attributes);												// list de vertexAttributes défini le format de chaque buffer
+	v.vertex_array = RD::get_singleton().vertex_array_create(s->vertex_count, v.vertex_format, buffers, offsets);		// list de buffers contenant le data
+
+	If mesh instance, will render the skeleton buffers
+	If mesh normal, will render the src buffers
+
+
+
+Sauf que vertex_array est used seulement dans:
+mesh_surface_get_vertex_arrays_and_format(..)
+mesh_instance_surface_get_vertex_arrays_and_format(..)
+
+
+Then called in :
+_render_list_template(RenderingDevice::DrawListID draw_list, .;.)
+	//global scope bindings
+	RD::get_singleton()->draw_list_bind_uniform_set(draw_list, render_base_uniform_set, SCENE_UNIFORM_SET);
+	RD::get_singleton()->draw_list_bind_uniform_set(draw_list, p_params->render_pass_uniform_set, RENDER_PASS_UNIFORM_SET);
+	RD::get_singleton()->draw_list_bind_uniform_set(draw_list, scene_shader.default_vec4_xform_uniform_set, TRANSFORMS_UNIFORM_SET);
+
+	RD::VertexFormatID vertex_format = -1;
+	RID vertex_array_rd;
+	RID index_array_rd;
+	if (mi) r_vertex_array = mesh_instance_surface_get_vertex_arrays_and_format
+	else r_vertex_array = mesh_surface_get_vertex_arrays_and_format
+
+
+	if(vertex != previous) RD::draw_list_bind_vertex_array(draw_list, r_vertex_array)
+	if(index != previous) RD::draw_list_bind_index_array(draw_list, index_array_rd)
+	
+	RID pipeline_rd = pipeline->get_render_pipeline(vertex_format, framebuffer_format, p_params->force_wireframe, 0, pipeline_specialization);
+
+	if(x_transforms != previous) RD::get_singleton()->draw_list_bind_uniform_set(draw_list, xforms_uniform_set, TRANSFORMS_UNIFORM_SET);
+	if(materials != previous) RD::get_singleton()->draw_list_bind_uniform_set(draw_list, material_uniform_set, MATERIAL_UNIFORM_SET);
+
+	RD::get_singleton()->draw_list_set_push_constant(draw_list, &push_constant, sizeof(SceneState::PushConstant));
+	
+	RD::get_singleton()->draw_list_draw(draw_list, index_array_rd.is_valid(), instance_count);

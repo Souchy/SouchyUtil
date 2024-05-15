@@ -1,0 +1,37 @@
+
+MeshInstance:
+
+
+RID MeshStorage::mesh_instance_create(RID p_base) 
+	Mesh = get(base)
+	RID rid = owner.new();
+	MeshInstance mi = owner.get(rid)
+	foreach surface in mesh
+		_mesh_instance_add_surface(mi, mesh, i);
+	return mi.rid;
+
+
+_instance_update_mesh_instance(Instance *p)
+	bool needs_instance = mesh_needs_instance(p, p.skeleton.isvalid())
+	if(needs_instance)
+		p.mesh_instance = mesh_instance_create(p.base)
+	...
+
+
+bool MeshStorage::mesh_needs_instance(RID p_mesh, bool p_has_skeleton) 
+	return mesh->blend_shape_count > 0 || (mesh->has_bone_weights && p_has_skeleton);
+
+
+
+
+CUSTOM: 
+
+
+instance_get_mesh_instance(instance_rid)
+	return instance.mesh_instance
+
+
+mesh_instance_add_buffer(RID mi, RID mesh, int surface)
+	
+
+mesh_instance_create(RID base_mesh)

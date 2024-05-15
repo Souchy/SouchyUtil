@@ -1,0 +1,71 @@
+
+MeshInstance
+	Mesh mesh
+	Surface surfaces
+		RID vertex_buffer[2], 
+		RID uniform_set[2]
+		int current_buffer
+		versions
+
+Mesh
+	Surface surfaces
+		RID vertex_buffer, attribute_buffer, skin_buffer, blend_shape_buffer;
+		RID material;
+		RID uniform_set;
+		Version
+			int current_buffer
+			RID vertex_array
+
+
+skeleton.glsl
+	output to vertex_buffer
+
+version.vertex_array = [s.vertex_buffer, s.attribute_buffer, s.skin_buffer, mesh_default_rd_buffer...]
+
+
+Ensuite le skelete bind sur le vertex_buffer
+	Vector<RD::Uniform> uniforms;
+	{
+		RD::Uniform u;
+		u.binding = 1;
+		u.uniform_type = RD::UNIFORM_TYPE_STORAGE_BUFFER;
+		u.append_id(s->vertex_buffer[p_buffer_index]);
+		uniforms.push_back(u);
+	}
+	s->uniform_set[p_buffer_index] = RD::get_singleton()->uniform_set_create(uniforms, skeleton_shader.version_shader[0], SkeletonShader::UNIFORM_SET_INSTANCE);
+
+Ensuite update_mesh_instances:
+	open compute list
+	foreach dirty_mesh_instance
+		foreach surface
+			RID mi_surface_uniform_set = mi->surfaces[i].uniform_set[mi->surfaces[i].current_buffer];
+			// mi.s destination vertex
+			RD::get_singleton()->compute_list_bind_uniform_set(compute_list, mi_surface_uniform_set, SkeletonShader::UNIFORM_SET_INSTANCE);
+			// m.s src vertex data + skin data + blend shape data
+			RD::get_singleton()->compute_list_bind_uniform_set(compute_list, mi->mesh->surfaces[i]->uniform_set, SkeletonShader::UNIFORM_SET_SURFACE);
+			// sk bone transforms global 
+			RD::get_singleton()->compute_list_bind_uniform_set(compute_list, sk->uniform_set_mi, SkeletonShader::UNIFORM_SET_SKELETON);
+			compute push constants
+			compute dispatch
+	close compute list
+
+
+So we need to emulate update_mesh_instances
+
+
+Avant de faire des conneries:
+	test de partager un buffer entre vertex shader et compute shader
+
+
+compute_list
+	foreach surface
+		skeleton.glsl
+			bind uniform bones
+			bind surface vertices
+
+
+
+
+
+
+			
