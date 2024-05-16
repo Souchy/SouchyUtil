@@ -1,0 +1,3 @@
+[gd_scene format=3 uid="uid://ccf10w5fuxil"]
+
+[node name="AnimationBaker" type="Node3D"]

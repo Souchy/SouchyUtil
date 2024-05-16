@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageId>$(AssemblyName)</PackageId>
+    <RootNamespace>SouchyUtil.Godot</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+	  <PackageReference Include="Chickensoft.LogicBlocks" Version="4.2.1" />
+	  <PackageReference Include="Chickensoft.LogicBlocks.Generator" Version="4.2.1" />
+	  <PackageReference Include="GodotSharpExtras" Version="0.4.0" />
+	  <PackageReference Include="GodotSharpKit.Generator" Version="1.2.1" />
+	  <PackageReference Include="SimpleInjector" Version="5.4.3" />
+  </ItemGroup>
+
+</Project>

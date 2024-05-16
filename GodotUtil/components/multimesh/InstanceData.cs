@@ -8,10 +8,11 @@ namespace souchyutil.godot.components.multimesh;
 /// </summary>
 public class InstanceData
 {
-    public int Id { get; set; }
+    //public int Id { get; set; }
     public AnimationHeader CurrentAnimation { get; private set; }
     public AnimationHeader LoopAnimation { get; private set; }
     public float Time { get; private set; }
+    public Transform3D Transform3D { get; set; }
 
     public void SetCurrentAnimation(AnimationHeader anim)
     {
@@ -32,9 +33,12 @@ public class InstanceData
 
     public void Process(double delta)
     {
-        Time += (float) delta;
-        if (Time > CurrentAnimation.Length)
-            SetCurrentAnimation(LoopAnimation);
+        if (CurrentAnimation != null)
+        {
+            Time += (float) delta;
+            if (Time > CurrentAnimation.Length)
+                SetCurrentAnimation(LoopAnimation);
+        }
     }
 
 }
